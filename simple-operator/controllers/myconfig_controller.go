@@ -52,8 +52,13 @@ func (r *MyConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	myConfig := &simplev1alpha1.MyConfig{}
 	err := r.Get(ctx, req.NamespacedName, myConfig)
 	if err != nil {
-		// This happens when the resource gets deleted. We can ignore this
-		return ctrl.Result{}, nil
+		if errors.IsNotFound(err) {
+			// This happens when the resource gets deleted. We can ignore this
+			return ctrl.Result{}, nil
+		} else {
+			log.Error(err, "Unexpected error getting MyConfig resource")
+			return ctrl.Result{}, err
+		}
 	}
 
 	configService := config_sdk.NewConfigService()
