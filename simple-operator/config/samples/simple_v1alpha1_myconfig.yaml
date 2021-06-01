@@ -1,0 +1,8 @@
+apiVersion: simple.absa.subatomic/v1alpha1
+kind: MyConfig
+metadata:
+  name: myconfig-sample
+spec:
+  # Add fields here
+  configName: example-1
+  targetConfigMap: some-config-map

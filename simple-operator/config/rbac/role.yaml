@@ -1,0 +1,34 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - simple.absa.subatomic
+  resources:
+  - myconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - simple.absa.subatomic
+  resources:
+  - myconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - simple.absa.subatomic
+  resources:
+  - myconfigs/status
+  verbs:
+  - get
+  - patch
+  - update

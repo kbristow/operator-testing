@@ -1,0 +1,24 @@
+# permissions for end users to edit myconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: myconfig-editor-role
+rules:
+- apiGroups:
+  - simple.absa.subatomic
+  resources:
+  - myconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - simple.absa.subatomic
+  resources:
+  - myconfigs/status
+  verbs:
+  - get
