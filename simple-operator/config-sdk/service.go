@@ -12,12 +12,12 @@ type ConfigService interface {
 }
 
 type Service struct {
-	url string
+	Url string
 }
 
 func newService() ConfigService {
 	url := os.Getenv("CONFIG_URL")
-	return Service{url: url}
+	return Service{Url: url}
 }
 
 var ConfigServiceFactoryFunction = newService
