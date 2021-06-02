@@ -11,6 +11,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"net/http"
+	"net/http/httptest"
 	"time"
 )
 
@@ -214,6 +216,107 @@ var _ = Describe("MyConfig controller", func() {
 				// Return the current version
 				return myConfig.Status.Version, nil
 			}, timeout, interval).Should(Equal(3))
+
+			// Delete to not interfere with next test
+			_ = k8sClient.Delete(ctx, myConfig)
+		})
+
+	})
+
+	Context("Using http server mocks, when updating a MyConfig", func() {
+		// Define utility constants for object names for this test
+		const (
+			MyConfigName      = "test-myconfig"
+			MyConfigNamespace = "default"
+		)
+
+		var (
+			myConfig = &simplev1alpha1.MyConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "simple.absa.subatomic/v1alpha1",
+					Kind:       "MyConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      MyConfigName,
+					Namespace: MyConfigNamespace,
+				},
+				Spec: simplev1alpha1.MyConfigSpec{
+					ConfigName:      "example-1",
+					TargetConfigMap: "a-config-map",
+				},
+			}
+			myConfigLookupKey = types.NamespacedName{
+				Namespace: myConfig.Namespace,
+				Name:      MyConfigName,
+			}
+			aConfigMapLookupKey = types.NamespacedName{
+				Namespace: myConfig.Namespace,
+				Name:      "a-config-map",
+			}
+		)
+		It("Should correctly manage the MyConfig resource", func() {
+			example1ConfigReturnValue := "{\"key\":\"value\"}"
+			example1ConfigCalled := false
+
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/example-1" {
+					example1ConfigCalled = true
+					w.Write([]byte(example1ConfigReturnValue))
+					w.WriteHeader(200)
+				} else {
+					w.WriteHeader(500)
+					w.Write([]byte("Unkown route"))
+				}
+			}))
+			defer ts.Close()
+
+			// Modify the ConfigServiceFactoryFunction to return Service point at fake server url
+			configsdk.ConfigServiceFactoryFunction = func() configsdk.ConfigService {
+				return configsdk.Service{
+					Url: ts.URL,
+				}
+			}
+
+			// Initial a context (always need one)
+			ctx := context.Background()
+
+			By("By creating a new MyConfig resource")
+			Expect(k8sClient.Create(ctx, myConfig)).Should(Succeed())
+
+			By("By making a call to get the example-1 config")
+			Eventually(func() bool {
+				return example1ConfigCalled
+			}, timeout, interval).Should(Equal(true))
+
+			By("Creating a-config-map with the correct data")
+			Eventually(func() (string, error) {
+				// Try get the config map expected
+				var aConfigMap corev1.ConfigMap
+				err := k8sClient.Get(ctx, aConfigMapLookupKey, &aConfigMap)
+				if err != nil {
+					// Fail if not successfully found
+					return "", err
+				}
+
+				// Get the data for the example-1 key
+				example1Config := aConfigMap.Data["example-1"]
+
+				// And return it
+				return example1Config, nil
+			}, timeout, interval).Should(Equal(example1ConfigReturnValue))
+
+			By("Creating setting my-config's status version property to 1")
+			Eventually(func() (int, error) {
+				// Get the updated state of myConfig
+				err := k8sClient.Get(ctx, myConfigLookupKey, myConfig)
+				if err != nil {
+					// Fail if not successfully retrieved
+					return 0, err
+				}
+
+				// Return the current version
+				return myConfig.Status.Version, nil
+			}, timeout, interval).Should(Equal(1))
 		})
 	})
 })

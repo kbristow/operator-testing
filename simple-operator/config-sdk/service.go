@@ -12,12 +12,12 @@ type ConfigService interface {
 }
 
 type Service struct {
-	url string
+	Url string
 }
 
 func newService() ConfigService {
 	url := os.Getenv("CONFIG_URL")
-	return Service{url: url}
+	return Service{Url: url}
 }
 
 var ConfigServiceFactoryFunction = newService
@@ -29,7 +29,7 @@ func NewConfigService() ConfigService {
 func (s Service) GetConfig(configName string) (string, error) {
 	httpClient := http.DefaultClient
 
-	getConfigRequest, _ := http.NewRequest("GET", fmt.Sprintf("%s/%s", s.url, configName), nil)
+	getConfigRequest, _ := http.NewRequest("GET", fmt.Sprintf("%s/%s", s.Url, configName), nil)
 
 	response, err := httpClient.Do(getConfigRequest)
 
