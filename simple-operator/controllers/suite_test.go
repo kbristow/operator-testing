@@ -17,7 +17,9 @@ limitations under the License.
 package controllers
 
 import (
+	mocks "github.com/kbristow/simple-operator/mocks/config-sdk"
 	"path/filepath"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -36,6 +38,21 @@ import (
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+
+type configServiceMockWrapper struct {
+	mocks.ConfigService
+	getConfigOverwriteFn func(string) (string, error)
+}
+
+// Replace GetConfig with a function that calls getConfigOverwriteFn override function
+// if it is defined, otherwise call the underlying mock object
+func (service *configServiceMockWrapper) GetConfig(name string) (string, error) {
+	if service.getConfigOverwriteFn != nil {
+		return service.getConfigOverwriteFn(name)
+	} else {
+		return service.ConfigService.GetConfig(name)
+	}
+}
 
 var cfg *rest.Config
 var k8sClient client.Client
@@ -71,6 +88,23 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme.Scheme,
+		MetricsBindAddress: "127.0.0.1:8888",
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&MyConfigReconciler{
+		Client: k8sClient,
+		Scheme: k8sManager.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("MyConfig"),
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		Expect(err).ToNot(HaveOccurred())
+	}()
 }, 60)
 
 var _ = AfterSuite(func() {
