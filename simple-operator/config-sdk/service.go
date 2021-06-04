@@ -29,7 +29,7 @@ func NewConfigService() ConfigService {
 func (s Service) GetConfig(configName string) (string, error) {
 	httpClient := http.DefaultClient
 
-	getConfigRequest, _ := http.NewRequest("GET", fmt.Sprintf("%s/%s", s.url, configName), nil)
+	getConfigRequest, _ := http.NewRequest("GET", fmt.Sprintf("%s/%s", s.Url, configName), nil)
 
 	response, err := httpClient.Do(getConfigRequest)
 
