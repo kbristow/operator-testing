@@ -23,7 +23,7 @@ The tests we write execute against a local instance of the kube-api-server. So w
 ### The MyConfig reconcile loop
 Before defining some tests, lets start by understanding how the simple-operator executes. Once we know this, we can start identifying what needs testing. Lets start by looking at a CR definition:
 
-```yaml=
+```yaml
 apiVersion: simple.absa.subatomic/v1alpha1
 kind: MyConfig
 metadata:
