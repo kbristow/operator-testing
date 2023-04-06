@@ -61,7 +61,7 @@ These are a few scenarios out of many possible ones but they should allow us to 
 ### General Setup
 Before we can write tests for the controller, we have to modify `suite_test.go` to start the controller and setup some config around how the k8's client is managed. This process is explained in detail on the kubebuilder [instructions](https://book.kubebuilder.io/cronjob-tutorial/writing-tests.html) for writing tests. The gist of it is we need to add some registration logic below the point in `suite_test.go` where the k8sclient is defined so that we have the following:
 
-```go=
+```golang
 k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 Expect(err).NotTo(HaveOccurred())
 Expect(k8sClient).NotTo(BeNil())
@@ -94,7 +94,7 @@ We have an external service that the controller interacts with to perform it's r
 
 In order to employ this mocking strategy, we need to code to an interface when creating the service to interact with the `simple-api`. This is already done and is implemented in the `config_api` package. The below excerpt shows this:
 
-```go=
+```golang
 type ConfigService interface {
 	GetConfig(string) (string, error)
 }
@@ -123,19 +123,19 @@ We define the interface `ConfigService` which has the only function we need: `Ge
 
 #### Mocks
 We can now create mocks for this interface. We create mocks using the [mockery framework](https://github.com/vektra/mockery) which can be installed using:
-```shell=
+```shell
 brew install mockery
 brew upgrade mockery
 ```
 The mocks for the `ConfigService` can then be generated with
-```shell=
+```shell
 mockery --all --keeptree
 ```
 which generates mocks for any interfaces found, and keeps the folder structure the same but within a `./mocks` directory. These mocks are generated code, and no manual editting should ever be required. If you update your interface, then you should re-generate the mocks.
 
 These mocks provide mocks that can be used as is, but we will provide a wrapper layer that allows us to extend the mocking framework if we wish. Create the wrapper layer in `suite_test.go` with no additional functionality yet, but we will extend it later to demonstrate the pattern. Add the following wrapper type:
 
-```go=
+```golang
 type configServiceMockWrapper struct {
 	mocks.ConfigService
 }
@@ -146,7 +146,7 @@ Now that we have the framework setup to mock our service lets try write a test.
 
 Create a `myconfig_controller_test.go` file to contain the tests for the controller. We can setup some base scenario boilerplay as follows:
 
-```go=
+```golang
 package controllers
 
 import (
@@ -178,7 +178,7 @@ The consts at the top are our general values for how often and for how long we a
 
 Inside the context we can start by defining some data that will be used within the test:
 
-```go=
+```golang
 // Define utility constants for object names for this test
 const (
     MyConfigName      = "test-myconfig"
@@ -214,7 +214,7 @@ This includes constants for the name and namespace of our resource, the initial 
 
 After defining the data we are going to use for the test, we can create a simple base for ours test as below
 
-```go=
+```golang
 
 It("Should correctly manage the MyConfig resource", func() {
     // Create a mock ConfigService
@@ -259,7 +259,7 @@ make test
 
 The next step in the initial test we defined earlier can be tested by adding a check to see that the config map expected get created correctly.
 
-```go=
+```golang
 By("Creating a-config-map with the correct data")
 Eventually(func() (string, error) {
     // Try get the config map expected
@@ -284,7 +284,7 @@ The tests can be run again and should pass.
 
 The initial testing scenario can now be rounded out by adding a check to assert that the status version property gets updated.
 
-```go=
+```golang
 By("Creating setting my-config's status version property to 1")
 Eventually(func() (int, error) {
     // Get the updated state of myConfig
@@ -306,7 +306,7 @@ The tests can be run again and should pass.
 
 Moving onto test scenario 2, we now want to change the definition of this MyConfig so that it pulls a config by a different name and then updates the config map appropriately. Lets start by adding a new mock. At the top of the test context where we previously set up our mocks add the new mock in the same way that we previously added a mock.
 
-```go=
+```golang
 // Create a mock that return a json value and mark a flag that indicates that the mock was called
 getExample2ConfigCalled := false
 example2ConfigReturnValue := "{\"key2\":\"value2\"}"
@@ -319,7 +319,7 @@ configServiceMock.On("GetConfig", "example-2").
 
 Next we can update the `myConfig` definition to use the `example-2` config and push this change to the kube-api. We then expect the new mock to get called. Add the following below the previous test
 
-```go=
+```golang
 By("Updating the my-config definition to use the example-2 config")
 myConfig.Spec.ConfigName = "example-2"
 Expect(k8sClient.Update(ctx, myConfig)).Should(Succeed())
@@ -334,7 +334,7 @@ The tests can be run again and should pass.
 
 The remainder of our test scenario can be implemented the same way as our previous tests. The below should be familiar and can be added below that last test
 
-```go=
+```golang
 By("Updating a-config-map with the correct data")
 Eventually(func() (string, error) {
     // Try get the config map expected
@@ -372,7 +372,7 @@ An example of where this is useful is lets say you have an operator that maintin
 
 Lets copy the first test scenario again to pull the `example-1` config but change the mock to have it return another value. Lets start by going back to the mock wrapper and change it to the following
 
-```go=
+```golang
 type configServiceMockWrapper struct {
 	mocks.ConfigService
 	getConfigOverwriteFn func(string)(string, error)
@@ -393,7 +393,7 @@ This gives us a way to extend the mock so that we can overwrite a function with 
 
 Lets rewrite our previous `On` mocks using this pattern
 
-```go=
+```golang
 example1ConfigFirstCalled := false
 example1ConfigSecondCalled := false
 example1ConfigScenario := "1"
@@ -427,7 +427,7 @@ configServiceMock.getConfigOverwriteFn = func(configName string) (string, error)
 
 This creates an overwrite function for GetConfig that covers all 3 of our mock cases for this test. Again this is a fabricated situation so it may seem silly to do this but it is meant to convey the pattern for when it is actually useful to use. We then need to update our scenario 1 tests so that they use the new variables defined above.
 
-```go=
+```golang
 By("By making a call to get the example-1 config")
 Eventually(func() bool {
     return example1ConfigFirstCalled
@@ -455,7 +455,7 @@ We can run the tests again to check that our tests still pass.
 
 Now we can add a third set of tests to test the final scenario very similar to the original set of tests.
 
-```go=
+```golang
 // Switch to the second example return scenario
 example1ConfigScenario = "2"
 
@@ -507,13 +507,13 @@ Instead of mocking out the service, we could instead create a fake server that w
 
 In order for the next context not to be contaminated by the first context, we must delete the original MyConfig instance. Add the following to the end of the last test
 
-```go=
+```golang
 // Delete to not interfere with next test
 _ = k8sClient.Delete(ctx, myConfig)
 ```
 
 Set up the next context with the same data used for the previous tests
-```go=
+```golang
 Context("Using http server mocks, when updating a MyConfig", func() {
     // Define utility constants for object names for this test
     const (
@@ -553,7 +553,7 @@ Context("Using http server mocks, when updating a MyConfig", func() {
 
 Create the fake server
 
-```go=
+```golang
 example1ConfigReturnValue := "{\"key\":\"value\"}"
 example1ConfigCalled := false
 
@@ -576,7 +576,7 @@ Create the fake server, and implement a response similar to how we mocked the Se
 
 We can now swap the factory function with one that creates a real service pointing to our fake server.
 
-```go=
+```golang
 // Modify the ConfigServiceFactoryFunction to return Service point at fake server url
 configsdk.ConfigServiceFactoryFunction = func() configsdk.ConfigService {
     return configsdk.Service{
@@ -586,7 +586,7 @@ configsdk.ConfigServiceFactoryFunction = func() configsdk.ConfigService {
 ```
 Then we can define the test the same way as in the original scenario
 
-```go=
+```golang
 // Initial a context (always need one)
 ctx := context.Background()
 
